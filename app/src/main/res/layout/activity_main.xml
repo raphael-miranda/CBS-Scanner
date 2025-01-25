@@ -73,13 +73,15 @@
                         android:textStyle="bold"/>
 
                     <com.google.android.material.slider.Slider
+                        android:id="@+id/sliderSelector"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginHorizontal="10dp"
                         android:layout_weight="1"
-                        android:stepSize="0.5"
+                        android:stepSize="1"
                         android:valueFrom="1"
-                        android:valueTo="2" />
+                        android:valueTo="2"
+                        android:value="2"/>
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -90,6 +92,7 @@
                 </LinearLayout>
 
                 <CheckBox
+                    android:id="@+id/chkManual"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="20dp"
@@ -148,7 +151,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="2"
-                    android:background="@drawable/edittext_bg" />
+                    android:background="@drawable/edittext_bg"
+                    android:enabled="false"/>
 
             </LinearLayout>
 
@@ -174,7 +178,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="2"
-                    android:background="@drawable/edittext_bg" />
+                    android:background="@drawable/edittext_bg"
+                    android:enabled="false"/>
 
             </LinearLayout>
 
@@ -200,7 +205,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="2"
-                    android:background="@drawable/edittext_bg" />
+                    android:background="@drawable/edittext_bg"
+                    android:enabled="false"/>
 
             </LinearLayout>
 
@@ -226,7 +232,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="2"
-                    android:background="@drawable/edittext_bg" />
+                    android:background="@drawable/edittext_bg"
+                    android:enabled="false"/>
 
             </LinearLayout>
 
@@ -251,7 +258,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="2"
-                    android:background="@drawable/edittext_bg" />
+                    android:background="@drawable/edittext_bg"
+                    android:enabled="false"/>
 
             </LinearLayout>
 
