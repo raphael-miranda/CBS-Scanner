@@ -19,6 +19,7 @@
     <string name="clear">Clear</string>
 
     <string name="ftp_server_address">FTP Server Address</string>
+    <string name="port">Port(for SFTP protocol)</string>
     <string name="username">Username</string>
     <string name="password">Password</string>
 </resources>

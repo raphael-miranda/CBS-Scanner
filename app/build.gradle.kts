@@ -49,4 +49,5 @@ dependencies {
 
     implementation(libs.zxing.android.embedded)
     implementation(libs.commons.net)
+    implementation(libs.jsch)
 }

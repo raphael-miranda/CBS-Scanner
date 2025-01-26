@@ -35,7 +35,12 @@ import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
+import com.jcraft.jsch.ChannelSftp
+import com.jcraft.jsch.JSch
+import com.jcraft.jsch.Session
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -43,6 +48,8 @@ class MainActivity : AppCompatActivity() {
     private val FTPServerKey: String = "FTPServerAddress"
     private val FTPUserNameKey: String = "FTPUserName"
     private val FTPPasswordKey: String = "FTPPassword"
+    private val FTPProtocolKey: String = "FTPProtocol"
+    private val FTPPortKey: String = "FTPPort"
     private val LocationKey: String = "Location"
 
     private lateinit var sliderSelector: Slider
@@ -122,13 +129,16 @@ class MainActivity : AppCompatActivity() {
         txtDNr = findViewById(R.id.txtD)
         txtQuantity = findViewById(R.id.txtQuantity)
 
+        txtLocation.text = getCurrentLocation()
+        txtRunningNr.text = String.format(Locale.getDefault(), "%d", getCurrentRunningNr())
+
         val btnSettings: ImageButton = findViewById(R.id.btnSettings)
         btnSettings.setOnClickListener {
             showSettingsDialog()
         }
 
         chkManual = findViewById(R.id.chkManual)
-        chkManual.setOnCheckedChangeListener { button, result ->
+        chkManual.setOnCheckedChangeListener { _, result ->
             if (result) {
                 txtPartNr.isEnabled = true
                 txtCartonNr.isEnabled = true
@@ -182,7 +192,23 @@ class MainActivity : AppCompatActivity() {
 
         val btnUpload: Button = findViewById(R.id.btnUpload)
         btnUpload.setOnClickListener {
-            upload()
+            val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
+            val ftpServer = sharedPreferences.getString(FTPServerKey, "")
+            val ftpUsername = sharedPreferences.getString(FTPUserNameKey, "") as String
+            val ftpPassword = sharedPreferences.getString(FTPPasswordKey, "") as String
+            val ftpPort = sharedPreferences.getString(FTPPortKey, "") as String
+
+            if (ftpServer.isNullOrEmpty()) {
+                showAlert("Error", "You didn't register FTP Server credentials. Please register them in Settings.")
+
+            } else if (ftpPort.isEmpty()) {
+                uploadFileUsingFTP(ftpServer, ftpUsername, ftpPassword)
+            } else {
+                CoroutineScope(Dispatchers.IO).launch {
+                    uploadFileUsingSFTP(ftpServer, ftpPort.toInt(), ftpUsername, ftpPassword)
+                }
+            }
+
         }
 
         // Initialize the permission launcher
@@ -359,7 +385,6 @@ class MainActivity : AppCompatActivity() {
             val inputStream = FileInputStream(file)
             val inputStreamReader = InputStreamReader(inputStream)
             val bufferedReader = BufferedReader(inputStreamReader)
-            val stringBuilder = StringBuilder()
             var line: String?
 
             // Read each line of the file
@@ -382,8 +407,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun clear() {
-        txtRunningNr.text = ""
-        txtLocation.text = ""
+        txtRunningNr.text = String.format(Locale.getDefault(), "%d", getCurrentRunningNr())
+        txtLocation.text = getCurrentLocation()
         txtCartonNr.text = ""
         txtPartNr.text = ""
         txtDNr.text = ""
@@ -400,16 +425,7 @@ class MainActivity : AppCompatActivity() {
         editor.apply()
     }
 
-    private fun upload() {
-        val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
-        val ftpServer = sharedPreferences.getString(FTPServerKey, "")
-        val ftpUsername = sharedPreferences.getString(FTPUserNameKey, "")
-        val ftpPassword = sharedPreferences.getString(FTPPasswordKey, "")
-
-        if (ftpServer.isNullOrEmpty()) {
-            showAlert("Error", "You didn't register FTP Server credentials. Please register them in Settings.")
-            return
-        }
+    private fun uploadFileUsingFTP(ftpServer: String, ftpUsername: String, ftpPassword: String) {
 
         val ftpClient = FTPClient()
         try {
@@ -452,6 +468,7 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             Log.e("FTP", "Error uploading file: ${e.message}")
+            showAlert("Upload failed!", "Error uploading file: ${e.message}")
         } finally {
             try {
                 ftpClient.logout()
@@ -459,6 +476,67 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e("FTP", "Error disconnecting: ${e.message}")
             }
+        }
+    }
+
+    fun uploadFileUsingSFTP(
+        host: String,
+        port: Int,
+        username: String,
+        password: String
+    ) {
+        try {
+            val dir = getCBSScannerDir(this)
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val currentDate = dateFormat.format(Date())
+            val file = File(dir, "${currentDate}.txt")
+            if (!file.exists()) {
+                showAlert("Error", "There is no file to upload!")
+                return
+            }
+
+            val jsch = JSch()
+            val session: Session = jsch.getSession(username, host, port)
+            session.setPassword(password)
+
+            // Disable host key checking for simplicity (use a more secure approach in production)
+            val config = java.util.Properties()
+            config["StrictHostKeyChecking"] = "no"
+            session.setConfig(config)
+
+            // Connect to the server
+            session.connect()
+
+            // Open the SFTP channel
+            val channel = session.openChannel("sftp") as ChannelSftp
+            channel.connect()
+            println("SFTP channel opened.")
+
+            val defaultDir = channel.pwd()
+
+            // Upload the file
+            val fileInputStream  = FileInputStream(file)
+            channel.put(fileInputStream , file.name)
+            fileInputStream .close()
+
+            println("File uploaded successfully to $defaultDir/${file.name}")
+            AlertDialog.Builder(this)
+                .setTitle("Upload Success")
+                .setMessage("File uploaded successfully.")
+                .setPositiveButton("OK") { dialog, _ ->
+                    reset()
+                    dialog.dismiss()
+                }
+                .create()
+                .show()
+
+            // Disconnect the channel and session
+            channel.disconnect()
+            session.disconnect()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            println("Error uploading file: ${e.message}")
+            showAlert("Upload Failed", "Error uploading file: ${e.message}")
         }
     }
 
