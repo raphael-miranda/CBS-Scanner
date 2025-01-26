@@ -21,9 +21,16 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.slider.Slider
+import com.jcraft.jsch.ChannelSftp
+import com.jcraft.jsch.JSch
+import com.jcraft.jsch.Session
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanIntentResult
 import com.journeyapps.barcodescanner.ScanOptions
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.apache.commons.net.ftp.FTP
 import org.apache.commons.net.ftp.FTPClient
 import java.io.BufferedReader
@@ -35,12 +42,6 @@ import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.jcraft.jsch.ChannelSftp
-import com.jcraft.jsch.JSch
-import com.jcraft.jsch.Session
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -205,7 +206,9 @@ class MainActivity : AppCompatActivity() {
                 showAlert("Error", "You didn't register FTP Server credentials. Please register them in Settings.")
 
             } else if (ftpPortString.isNullOrEmpty()) {
-                uploadFileUsingFTP(ftpServer, ftpUsername, ftpPassword)
+                CoroutineScope(Dispatchers.IO).launch {
+                    uploadFileUsingFTP(ftpServer, ftpUsername, ftpPassword)
+                }
             } else {
                 CoroutineScope(Dispatchers.IO).launch {
                     uploadFileUsingSFTP(ftpServer, ftpPort, ftpUsername, ftpPassword)
@@ -440,7 +443,7 @@ class MainActivity : AppCompatActivity() {
         clear()
     }
 
-    private fun uploadFileUsingFTP(ftpServer: String, ftpUsername: String, ftpPassword: String) {
+    private suspend fun uploadFileUsingFTP(ftpServer: String, ftpUsername: String, ftpPassword: String) {
 
         val ftpClient = FTPClient()
         try {
@@ -449,7 +452,9 @@ class MainActivity : AppCompatActivity() {
             val currentDate = dateFormat.format(Date())
             val file = File(dir, "${currentDate}.txt")
             if (!file.exists()) {
-                showAlert("Error", "There is no file to upload!")
+                withContext(Dispatchers.Main) {
+                    showAlert("Error", "There is no file to upload!")
+                }
                 return
             }
 
@@ -463,28 +468,35 @@ class MainActivity : AppCompatActivity() {
             val remoteFileName = file.name
 
             val success = ftpClient.storeFile(remoteFileName, inputStream)
-            inputStream.close()
+            withContext(Dispatchers.IO) {
+                inputStream.close()
+            }
 
             if (success) {
                 Log.d("FTP", "File uploaded successfully")
-
-                AlertDialog.Builder(this)
-                    .setTitle("Upload Success")
-                    .setMessage("File uploaded successfully.")
-                    .setPositiveButton("OK") { dialog, _ ->
-                        reset()
-                        dialog.dismiss()
-                    }
-                    .create()
-                    .show()
+                withContext(Dispatchers.Main) {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Upload Success")
+                        .setMessage("File uploaded successfully.")
+                        .setPositiveButton("OK") { dialog, _ ->
+                            reset()
+                            dialog.dismiss()
+                        }
+                        .create()
+                        .show()
+                }
 
             } else {
                 Log.e("FTP", "File upload failed")
-                showAlert("Upload failed!", "File upload failed.")
+                withContext(Dispatchers.Main) {
+                    showAlert("Upload failed!", "File upload failed.")
+                }
             }
         } catch (e: Exception) {
             Log.e("FTP", "Error uploading file: ${e.message}")
-            showAlert("Upload failed!", "Error uploading file: ${e.message}")
+            withContext(Dispatchers.Main) {
+                showAlert("Upload failed!", "Error uploading file: ${e.message}")
+            }
         } finally {
             try {
                 ftpClient.logout()
@@ -495,7 +507,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun uploadFileUsingSFTP(
+    private suspend fun uploadFileUsingSFTP(
         host: String,
         port: Int,
         username: String,
@@ -507,7 +519,9 @@ class MainActivity : AppCompatActivity() {
             val currentDate = dateFormat.format(Date())
             val file = File(dir, "${currentDate}.txt")
             if (!file.exists()) {
-                showAlert("Error", "There is no file to upload!")
+                withContext(Dispatchers.Main) {
+                    showAlert("Error", "There is no file to upload!")
+                }
                 return
             }
 
@@ -526,7 +540,9 @@ class MainActivity : AppCompatActivity() {
             // Open the SFTP channel
             val channel = session.openChannel("sftp") as ChannelSftp
             channel.connect()
-            Toast.makeText(this, "SFTP channel opened.", Toast.LENGTH_SHORT).show()
+            withContext(Dispatchers.Main) {
+                Toast.makeText(applicationContext, "SFTP channel opened.", Toast.LENGTH_SHORT).show()
+            }
 
             val defaultDir = channel.pwd()
 
@@ -536,15 +552,17 @@ class MainActivity : AppCompatActivity() {
             fileInputStream .close()
 
             println("File uploaded successfully to $defaultDir/${file.name}")
-            AlertDialog.Builder(this)
-                .setTitle("Upload Success")
-                .setMessage("File uploaded successfully.")
-                .setPositiveButton("OK") { dialog, _ ->
-                    reset()
-                    dialog.dismiss()
-                }
-                .create()
-                .show()
+            withContext(Dispatchers.Main) {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Upload Success")
+                    .setMessage("File uploaded successfully.")
+                    .setPositiveButton("OK") { dialog, _ ->
+                        reset()
+                        dialog.dismiss()
+                    }
+                    .create()
+                    .show()
+            }
 
             // Disconnect the channel and session
             channel.disconnect()
@@ -552,7 +570,10 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
             println("Error uploading file: ${e.message}")
-            showAlert("Upload Failed", "Error uploading file: ${e.message}")
+            withContext(Dispatchers.Main) {
+                showAlert("Upload Failed", "Error uploading file: ${e.message}")
+            }
+
         }
     }
 
@@ -576,7 +597,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun increaseRunningNr() {
         val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
-        val oldRunningNr = sharedPreferences.getInt(RunningNrKey, 1)
+        val oldRunningNr = sharedPreferences.getInt(RunningNrKey, 0)
         val editor = sharedPreferences.edit()
         editor.putInt(RunningNrKey, oldRunningNr + 1)
         editor.putString(LocationKey, txtLocation.text.toString())
