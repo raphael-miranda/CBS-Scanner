@@ -48,4 +48,5 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 
     implementation(libs.zxing.android.embedded)
+    implementation(libs.commons.net)
 }
