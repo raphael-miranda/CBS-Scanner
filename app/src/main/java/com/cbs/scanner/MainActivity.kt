@@ -48,7 +48,6 @@ class MainActivity : AppCompatActivity() {
     private val FTPServerKey: String = "FTPServerAddress"
     private val FTPUserNameKey: String = "FTPUserName"
     private val FTPPasswordKey: String = "FTPPassword"
-    private val FTPProtocolKey: String = "FTPProtocol"
     private val FTPPortKey: String = "FTPPort"
     private val LocationKey: String = "Location"
 
@@ -76,7 +75,7 @@ class MainActivity : AppCompatActivity() {
                 txtDNr.text = ""
                 txtQuantity.text = ""
 
-                txtRunningNr.text = String.format(Locale.getDefault(), "%d", getCurrentRunningNr())
+                txtRunningNr.text = String.format(Locale.getDefault(), "%d", getCurrentRunningNr() + 1)
             } else {
                 showAlert("Double Carton", "You scanned double carton.")
                 clear()
@@ -102,7 +101,7 @@ class MainActivity : AppCompatActivity() {
                 txtDNr.text = parseData[2]
                 txtQuantity.text = parseData[3]
 
-                txtRunningNr.text = String.format(Locale.getDefault(), "%d", getCurrentRunningNr())
+                txtRunningNr.text = String.format(Locale.getDefault(), "%d", getCurrentRunningNr() + 1)
             } else {
                 showAlert("Double Carton", "You scanned double carton.")
                 clear()
@@ -196,16 +195,20 @@ class MainActivity : AppCompatActivity() {
             val ftpServer = sharedPreferences.getString(FTPServerKey, "")
             val ftpUsername = sharedPreferences.getString(FTPUserNameKey, "") as String
             val ftpPassword = sharedPreferences.getString(FTPPasswordKey, "") as String
-            val ftpPort = sharedPreferences.getString(FTPPortKey, "") as String
+            val ftpPortString = sharedPreferences.getString(FTPPortKey, "")
+            var ftpPort: Int = 0
+            if (!ftpPortString.isNullOrEmpty()) {
+                ftpPort = ftpPortString.toInt()
+            }
 
             if (ftpServer.isNullOrEmpty()) {
                 showAlert("Error", "You didn't register FTP Server credentials. Please register them in Settings.")
 
-            } else if (ftpPort.isEmpty()) {
+            } else if (ftpPortString.isNullOrEmpty()) {
                 uploadFileUsingFTP(ftpServer, ftpUsername, ftpPassword)
             } else {
                 CoroutineScope(Dispatchers.IO).launch {
-                    uploadFileUsingSFTP(ftpServer, ftpPort.toInt(), ftpUsername, ftpPassword)
+                    uploadFileUsingSFTP(ftpServer, ftpPort, ftpUsername, ftpPassword)
                 }
             }
 
@@ -265,8 +268,15 @@ class MainActivity : AppCompatActivity() {
 
         // Find the input fields in the inflated layout
         val ftpServerEditText: EditText = dialogView.findViewById(R.id.txtFtpServer)
+        val ftpPortEditText: EditText = dialogView.findViewById(R.id.txtFtpPort)
         val usernameEditText: EditText = dialogView.findViewById(R.id.txtUsername)
         val passwordEditText: EditText = dialogView.findViewById(R.id.txtPassword)
+
+        val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
+        ftpServerEditText.setText(sharedPreferences.getString(FTPServerKey, ""))
+        usernameEditText.setText(sharedPreferences.getString(FTPUserNameKey, ""))
+        passwordEditText.setText(sharedPreferences.getString(FTPPasswordKey, ""))
+        ftpPortEditText.setText(sharedPreferences.getString(FTPPortKey, ""))
 
         // Create the dialog
         val dialog = AlertDialog.Builder(this)
@@ -275,6 +285,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("Save") { _, _ ->
 
                 val ftpServer = ftpServerEditText.text.toString()
+                val ftpPort = ftpPortEditText.text.toString()
                 val username = usernameEditText.text.toString()
                 val password = passwordEditText.text.toString()
 
@@ -282,9 +293,12 @@ class MainActivity : AppCompatActivity() {
                 val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
                 val editor = sharedPreferences.edit()
                 editor.putString(FTPServerKey, ftpServer)
+                editor.putString(FTPPortKey, ftpPort)
                 editor.putString(FTPUserNameKey, username)
                 editor.putString(FTPPasswordKey, password)
                 editor.apply()
+
+                Toast.makeText(this, "Saved FTP credentials successfully!", Toast.LENGTH_LONG).show()
             }
             .setNegativeButton("Close") { dialog, _ ->
                 dialog.cancel() // Close the dialog when "Cancel" is clicked
@@ -420,9 +434,10 @@ class MainActivity : AppCompatActivity() {
 
         val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
         val editor = sharedPreferences.edit()
-        editor.putInt(RunningNrKey, 1)
+        editor.putInt(RunningNrKey, 0)
         editor.putString(LocationKey, "PA")
         editor.apply()
+        clear()
     }
 
     private fun uploadFileUsingFTP(ftpServer: String, ftpUsername: String, ftpPassword: String) {
@@ -439,6 +454,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             ftpClient.connect(ftpServer)
+            Toast.makeText(this, "FTP connection successfully!", Toast.LENGTH_SHORT).show()
             ftpClient.login(ftpUsername, ftpPassword)
             ftpClient.enterLocalPassiveMode()
             ftpClient.setFileType(FTP.BINARY_FILE_TYPE)
@@ -479,7 +495,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun uploadFileUsingSFTP(
+    private fun uploadFileUsingSFTP(
         host: String,
         port: Int,
         username: String,
@@ -510,7 +526,7 @@ class MainActivity : AppCompatActivity() {
             // Open the SFTP channel
             val channel = session.openChannel("sftp") as ChannelSftp
             channel.connect()
-            println("SFTP channel opened.")
+            Toast.makeText(this, "SFTP channel opened.", Toast.LENGTH_SHORT).show()
 
             val defaultDir = channel.pwd()
 
@@ -554,7 +570,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun getCurrentRunningNr(): Int {
         val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
-        return sharedPreferences.getInt(RunningNrKey, 1)
+        return sharedPreferences.getInt(RunningNrKey, 0)
     }
 
 

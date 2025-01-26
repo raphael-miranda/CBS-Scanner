@@ -28,7 +28,6 @@
     <EditText
         android:id="@+id/txtPassword"
         android:hint="@string/password"
-        android:inputType="textPassword"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
 </LinearLayout>
