@@ -2,6 +2,7 @@ package com.cbs.scanner
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -141,12 +142,25 @@ class MainActivity : AppCompatActivity() {
 
         val btnView: Button = findViewById(R.id.btnView)
         btnView.setOnClickListener {
-            view()
+            val intent = Intent(this, ViewActivity::class.java)
+            startActivity(intent)
         }
 
         val btnReset: Button = findViewById(R.id.btnReset)
         btnReset.setOnClickListener {
-            reset()
+            val dialog = AlertDialog.Builder(this)
+                .setTitle("Reset Confirm")
+                .setMessage("Are you sure to reset all?")
+                .setPositiveButton("Yes") { _, _ ->
+                    reset()
+                }
+                .setNegativeButton("No") { dialog, _ ->
+                    dialog.cancel()
+                }
+                .create()
+
+            dialog.show()
+
         }
 
         val btnUpload: Button = findViewById(R.id.btnUpload)
@@ -268,19 +282,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun getCBSScannerDir(): File? {
-        // Get external storage directory
-        val appSpecificDir = getExternalFilesDir(null)
-        val cbsScannerDir = File(appSpecificDir, "CBS_Scanner")
-        if (!cbsScannerDir.exists()) {
-            val created = cbsScannerDir.mkdirs()
-            if (!created) {
-                Log.e("=========", "Failed to create directory")
-                return null
-            }
-        }
-        return cbsScannerDir
-    }
 
     private fun next() {
         if (txtCartonNr.text.isEmpty()) {
@@ -298,10 +299,10 @@ class MainActivity : AppCompatActivity() {
             dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
             val currentTime = dateFormat.format(Date())
 
-            val scannedData = String.format(Locale.getDefault(), "%s|%s|%s|%s|%s|%s|%s|%s",
-                currentDate,
-                currentTime,
-                paddedString(txtRunningNr.text.toString(), 10),
+            val scannedData = String.format(Locale.getDefault(), "%s | %s | %s | %s | %s | %s | %s | %s",
+                paddedString(currentDate, 12),
+                paddedString(currentTime, 12),
+                paddedString(txtRunningNr.text.toString(), 12),
                 paddedString(txtCartonNr.text.toString(), 12),
                 paddedString(txtQuantity.text.toString(), 12),
                 paddedString(txtDNr.text.toString(), 12),
@@ -311,7 +312,7 @@ class MainActivity : AppCompatActivity() {
             Log.d("==========", scannedData)
 
             // Create the file
-            val file = File(getCBSScannerDir(), "${currentDate}.txt")
+            val file = File(getCBSScannerDir(this), "${currentDate}.txt")
             FileOutputStream(file, true).use { fos ->
                 fos.write(scannedData.toByteArray())
                 fos.write("\n".toByteArray())
@@ -326,10 +327,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun paddedString(original: String, totalLength: Int): String {
-        return original.padEnd(totalLength, ' ')
-    }
-
     private fun clear() {
         txtRunningNr.text = ""
         txtLocation.text = ""
@@ -337,10 +334,6 @@ class MainActivity : AppCompatActivity() {
         txtPartNr.text = ""
         txtDNr.text = ""
         txtQuantity.text = ""
-    }
-
-    private fun view() {
-
     }
 
     private fun reset() {
@@ -361,7 +354,7 @@ class MainActivity : AppCompatActivity() {
 
         val ftpClient = FTPClient()
         try {
-            val dir = getCBSScannerDir()
+            val dir = getCBSScannerDir(this)
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val currentDate = dateFormat.format(Date())
             val file = File(dir, "${currentDate}.txt")
@@ -432,7 +425,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun deleteCurrentFile() {
         try {
-            val dir = getCBSScannerDir()
+            val dir = getCBSScannerDir(this)
 
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val currentDate = dateFormat.format(Date())
