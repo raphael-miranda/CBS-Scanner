@@ -26,8 +26,12 @@ import com.journeyapps.barcodescanner.ScanIntentResult
 import com.journeyapps.barcodescanner.ScanOptions
 import org.apache.commons.net.ftp.FTP
 import org.apache.commons.net.ftp.FTPClient
+import java.io.BufferedReader
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.IOException
+import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -39,6 +43,7 @@ class MainActivity : AppCompatActivity() {
     private val FTPServerKey: String = "FTPServerAddress"
     private val FTPUserNameKey: String = "FTPUserName"
     private val FTPPasswordKey: String = "FTPPassword"
+    private val LocationKey: String = "Location"
 
     private lateinit var sliderSelector: Slider
     private lateinit var chkManual: CheckBox
@@ -56,13 +61,20 @@ class MainActivity : AppCompatActivity() {
         if (result.contents == null) {
             Toast.makeText(this, "Cancelled", Toast.LENGTH_LONG).show()
         } else {
-            txtLocation.text = "PA"
-            txtCartonNr.text = result.contents
-            txtPartNr.text = ""
-            txtDNr.text = ""
-            txtQuantity.text = ""
 
-            txtRunningNr.text = String.format(Locale.getDefault(), "%d", getCurrentRunningNr())
+            if (isNewCarton(result.contents)) {
+                txtLocation.text = getCurrentLocation()
+                txtCartonNr.text = result.contents
+                txtPartNr.text = ""
+                txtDNr.text = ""
+                txtQuantity.text = ""
+
+                txtRunningNr.text = String.format(Locale.getDefault(), "%d", getCurrentRunningNr())
+            } else {
+                showAlert("Double Carton", "You scanned double carton.")
+                clear()
+            }
+
         }
     }
 
@@ -75,13 +87,20 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Cancelled", Toast.LENGTH_LONG).show()
         } else {
             val parseData = result.contents.split(";")
-            txtLocation.text = "PA"
-            txtCartonNr.text = parseData[0]
-            txtPartNr.text = parseData[1]
-            txtDNr.text = parseData[2]
-            txtQuantity.text = parseData[3]
+            val carton = parseData[0]
+            if (isNewCarton(carton)) {
+                txtLocation.text = getCurrentLocation()
+                txtCartonNr.text = parseData[0]
+                txtPartNr.text = parseData[1]
+                txtDNr.text = parseData[2]
+                txtQuantity.text = parseData[3]
 
-            txtRunningNr.text = String.format(Locale.getDefault(), "%d", getCurrentRunningNr())
+                txtRunningNr.text = String.format(Locale.getDefault(), "%d", getCurrentRunningNr())
+            } else {
+                showAlert("Double Carton", "You scanned double carton.")
+                clear()
+            }
+
         }
     }
 
@@ -111,13 +130,11 @@ class MainActivity : AppCompatActivity() {
         chkManual = findViewById(R.id.chkManual)
         chkManual.setOnCheckedChangeListener { button, result ->
             if (result) {
-                txtLocation.isEnabled = true
                 txtPartNr.isEnabled = true
                 txtCartonNr.isEnabled = true
                 txtDNr.isEnabled = true
                 txtQuantity.isEnabled = true
             } else {
-                txtLocation.isEnabled = false
                 txtPartNr.isEnabled = false
                 txtCartonNr.isEnabled = false
                 txtDNr.isEnabled = false
@@ -320,11 +337,48 @@ class MainActivity : AppCompatActivity() {
             Log.d("FileSave", "File saved at: ${file.absolutePath}")
             increaseRunningNr()
             clear()
-            showAlert("Success", "Scanned data was saved successfully!")
+            Toast.makeText(this, "Scanned data was saved successfully!", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             Log.e("FileSave", "Error saving file: ${e.message}")
-            showAlert("Failed", "Save file failed!")
+            Toast.makeText(this, "Save file failed!", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun isNewCarton(carton: String) : Boolean {
+        var dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val currentDate = dateFormat.format(Date())
+
+        val file = File(getCBSScannerDir(this), "${currentDate}.txt")
+        if (!file.exists()) {
+            return true
+        }
+
+        var result = true
+
+        try {
+            val inputStream = FileInputStream(file)
+            val inputStreamReader = InputStreamReader(inputStream)
+            val bufferedReader = BufferedReader(inputStreamReader)
+            val stringBuilder = StringBuilder()
+            var line: String?
+
+            // Read each line of the file
+            while (bufferedReader.readLine().also { line = it } != null) {
+                if (!line.isNullOrEmpty() && line!!.contains(carton)) {
+                    result = false
+                }
+            }
+
+            // Close the streams
+            bufferedReader.close()
+            inputStreamReader.close()
+            inputStream.close()
+
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+
+        return result
     }
 
     private fun clear() {
@@ -338,7 +392,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun reset() {
         deleteCurrentFile()
-        resetRunningNr()
+
+        val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
+        editor.putInt(RunningNrKey, 1)
+        editor.putString(LocationKey, "PA")
+        editor.apply()
     }
 
     private fun upload() {
@@ -403,23 +462,30 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun getCurrentLocation(): String? {
+        val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
+        return sharedPreferences.getString(LocationKey, "PA")
+    }
+
+    private fun saveCurrentLocation(location: String) {
+        val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
+        editor.putString(LocationKey, location)
+        editor.apply()
+    }
+
     private fun getCurrentRunningNr(): Int {
         val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
         return sharedPreferences.getInt(RunningNrKey, 1)
     }
 
-    private fun resetRunningNr() {
-        val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
-        editor.putInt(RunningNrKey, 1)
-        editor.apply()
-    }
 
     private fun increaseRunningNr() {
         val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
         val oldRunningNr = sharedPreferences.getInt(RunningNrKey, 1)
         val editor = sharedPreferences.edit()
         editor.putInt(RunningNrKey, oldRunningNr + 1)
+        editor.putString(LocationKey, txtLocation.text.toString())
         editor.apply()
     }
 
