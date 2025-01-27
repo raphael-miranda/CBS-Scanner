@@ -367,9 +367,9 @@ class MainActivity : AppCompatActivity() {
             dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
             val currentTime = dateFormat.format(Date())
 
-            val scannedData = String.format(Locale.getDefault(), "%s | %s | %s | %s | %s | %s | %s | %s",
-                paddedString(currentDate, 12),
-                paddedString(currentTime, 12),
+            val scannedData = String.format(Locale.getDefault(), "%s|%s|%s|%s|%s|%s|%s|%s",
+                paddedString(currentDate, 10),
+                paddedString(currentTime, 8),
                 paddedString(txtRunningNr.text.toString(), 12),
                 paddedString(txtCartonNr.text.toString(), 12),
                 paddedString(txtQuantity.text.toString(), 12),
@@ -559,7 +559,7 @@ class MainActivity : AppCompatActivity() {
             // Upload the file
             val fileInputStream  = FileInputStream(file)
             channel.put(fileInputStream , file.name)
-            fileInputStream .close()
+            fileInputStream.close()
 
             println("File uploaded successfully to $defaultDir/${file.name}")
             withContext(Dispatchers.Main) {
