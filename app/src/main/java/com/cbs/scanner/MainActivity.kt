@@ -20,6 +20,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.widget.addTextChangedListener
 import com.google.android.material.slider.Slider
 import com.jcraft.jsch.ChannelSftp
 import com.jcraft.jsch.JSch
@@ -144,6 +145,7 @@ class MainActivity : AppCompatActivity() {
                 txtCartonNr.isEnabled = true
                 txtDNr.isEnabled = true
                 txtQuantity.isEnabled = true
+                txtCartonNr.requestFocus()
             } else {
                 txtPartNr.isEnabled = false
                 txtCartonNr.isEnabled = false
@@ -160,6 +162,12 @@ class MainActivity : AppCompatActivity() {
         val btnNext: Button = findViewById(R.id.btnNext)
         btnNext.setOnClickListener {
             next()
+        }
+        if (txtCartonNr.text.isEmpty()) {
+            btnNext.isEnabled = false
+        }
+        txtCartonNr.addTextChangedListener {
+            btnNext.isEnabled = !txtCartonNr.text.isNullOrEmpty()
         }
 
         val btnClear: Button = findViewById(R.id.btnClear)
@@ -372,7 +380,9 @@ class MainActivity : AppCompatActivity() {
             Log.d("==========", scannedData)
 
             // Create the file
-            val file = File(getCBSScannerDir(this), "${currentDate}.txt")
+            dateFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+            val fileName = dateFormat.format(Date())
+            val file = File(getCBSScannerDir(this), "${fileName}.txt")
             FileOutputStream(file, true).use { fos ->
                 fos.write(scannedData.toByteArray())
                 fos.write("\n".toByteArray())
@@ -388,10 +398,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isNewCarton(carton: String) : Boolean {
-        var dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val currentDate = dateFormat.format(Date())
+        val dateFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+        val fileName = dateFormat.format(Date())
 
-        val file = File(getCBSScannerDir(this), "${currentDate}.txt")
+        val file = File(getCBSScannerDir(this), "${fileName}.txt")
         if (!file.exists()) {
             return true
         }
@@ -448,9 +458,9 @@ class MainActivity : AppCompatActivity() {
         val ftpClient = FTPClient()
         try {
             val dir = getCBSScannerDir(this)
-            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            val currentDate = dateFormat.format(Date())
-            val file = File(dir, "${currentDate}.txt")
+            val dateFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+            val fileName = dateFormat.format(Date())
+            val file = File(dir, "${fileName}.txt")
             if (!file.exists()) {
                 withContext(Dispatchers.Main) {
                     showAlert("Error", "There is no file to upload!")
@@ -515,9 +525,9 @@ class MainActivity : AppCompatActivity() {
     ) {
         try {
             val dir = getCBSScannerDir(this)
-            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            val currentDate = dateFormat.format(Date())
-            val file = File(dir, "${currentDate}.txt")
+            val dateFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+            val fileName = dateFormat.format(Date())
+            val file = File(dir, "${fileName}.txt")
             if (!file.exists()) {
                 withContext(Dispatchers.Main) {
                     showAlert("Error", "There is no file to upload!")
@@ -580,13 +590,6 @@ class MainActivity : AppCompatActivity() {
     private fun getCurrentLocation(): String? {
         val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
         return sharedPreferences.getString(LocationKey, "PA")
-    }
-
-    private fun saveCurrentLocation(location: String) {
-        val sharedPreferences = getSharedPreferences(packageName, Context.MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
-        editor.putString(LocationKey, location)
-        editor.apply()
     }
 
     private fun getCurrentRunningNr(): Int {

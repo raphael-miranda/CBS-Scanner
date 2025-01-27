@@ -62,14 +62,14 @@ class ViewActivity : AppCompatActivity() {
     @SuppressLint("SetTextI18n")
     private fun showContent() {
         val dir = getCBSScannerDir(this)
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val currentDate = dateFormat.format(Date())
-        val file = File(dir, "${currentDate}.txt")
+        val dateFormat = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+        val fileName = dateFormat.format(Date())
+        val file = File(dir, "${fileName}.txt")
         if (!file.exists()) {
             return
         }
 
-        txtFileName.text = "${currentDate}.txt"
+        txtFileName.text = "${fileName}.txt"
 
         try {
             val inputStream = FileInputStream(file)
